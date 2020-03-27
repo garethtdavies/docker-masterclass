@@ -41,27 +41,30 @@
     - [10. Container Privileges and Permissions](#10-container-privileges-and-permissions)
       - [10.1 Users in Containers](#101-users-in-containers)
       - [10.2 Namespaces, Capabilities, Networking and Control Groups](#102-namespaces-capabilities-networking-and-control-groups)
+    - [11. Docker Repositories](#11-docker-repositories)
   - [Conclusion](#conclusion)
 
 ## Introduction
 
 Docker is a set of services that use OS level virtualization to run
 self-contained instances of software. These instances are known as containers,
-and include everything that the software running within them needs to function.
+and include everything that the software running within them needs to function
+apart from the Linux kernel.
 
 This Masterclass is an aside to the rest of the balena Masterclasses, in that
 it focuses specifically on Docker, from the basics to some 'deep dives' into
 how containers (and other components) function and are constructed.
 
 It is anticipated that after reading the basic sections of this Masterclass,
-the reading of the [Services Masterclass] will allow anybody to develop
-balena applications and services.
+the reading of the
+[Services Masterclass](https://github.com/balena-io/services-masterclass)
+will allow anybody to develop balena applications and services.
 
 ## Hardware and Software Requirements
 
 It is assumed that the reader has access to the following:
 
-* A locally cloned copy of this repository
+* A locally cloned copy of this repository,
 	[Docker Masterclass](https://github.com/balena-io/docker-masterclass).
 	Either:
   * `git clone https://github.com/balena-io/docker-masterclass.git`
@@ -74,13 +77,127 @@ It is assumed that the reader has access to the following:
 
 ## Exercises
 
-All of the following exercises assume that you are running the balena CLI from
+All of the following exercises assume that you are running the Docker CLI from
 a suitable Unix based shell. The exercises include commands which can be run
 in such a shell, and are represented by a line prefixed with `$`. Information
 returned from execution of a command may be appended under the line to show
 what might be returned. For example:
 
 ```shell
+$ docker images
+REPOSITORY                        TAG                 IMAGE ID            CREATED             SIZE
+```
+
+### 1. Introduction to Docker
+
+Docker allows the execution of software in self-enclosed packages called
+'containers'. Containers are essentially small execution environments, and
+can range from being tiny environments where only a few binaries are included,
+to fully blown Linux distributions such as Debian or Ubuntu where many packages
+can be included for the container environment to use (eg. via the use of
+`apt-get` in the case of Debian or Ubuntu).
+
+As such, Docker features some very useful benefits:
+* The ability to run applications/binaries in a sandboxed execution environment
+    where malicious code will not have access to the host OS.
+* Easy and rapid deployment to a machine that Docker is installed on, with the
+    assurance that the containers will run in the same way as on any other
+    system with Docker installed.
+* Rapid development due to the quick building and recreation of containers, as
+    opposed to having to reinstall an OS and dependencies on a bare-metal or
+    Viritualised system.
+
+Containerization is an alternative form of providing host OS separation to that
+of an execution environment, where other forms include Virtualization, where
+machine resources (such as CPU cores, memory and disk space) are partitioned
+off from the host OS and used to run a guest OS instead. Unlike Virtualization,
+Containerization uses host OS resources as it needs them at runtime. As such,
+there is no need to pre-allocate resources.
+
+Docker runs as a service, how this occurs depends on the host OS:
+* Linux - Runs as an OS daemon service (such as a `systemd` unit
+   file), which is then sent commands via the `docker` and `docker-compose`
+   clients.
+* macOS - A Xen Hypervisor Virtual Machine runs the Docker service, and a UI
+  and CLI client connects to it.
+* Windows - A Virtual Machine (called MobyVM) is run, with the UI and CLI client
+  connecting to it, or via [WSL](https://docs.docker.com/docker-for-windows/wsl-tech-preview/).
+
+At this point, it's worth introducing some terminology, so that we can easily
+refer to concepts in the future. It's worth noting that some of the concepts
+described in the terminology will be described later in the exercises.
+
+* Layer - A layer is part of a Docker Image or Container. It represents a
+  file system layout, comprised of both directories and files. Layers are
+  created during the building of a Docker image, or whilst a container is
+  currently running.
+* Image - A Docker image is a self-contained object representing a file system,
+  comprised of Docker layers. The number of layers in an image vary from a
+  minimum of 1. Images are created from Dockerfile 'recipes', which contain a
+  number of directives that allow the image to be created by carrying out
+  operations such as copying files into the image, executing commands to
+  configure the image (such as `apt-get` from a Debian base image, or running
+  bash scripts to generate configuration files) and determining which binary
+  will be executed when the image is run as a container.
+* Container - A Docker container is a running instance of an image. When an
+  image is selected to be run, a new container is created that uses the layers
+  from the Docker image as the base filesystem (the image acts as a 'template'
+  for the container and the container never alters the image), and then runs any
+  command that has been given. Should the container create any new files, or
+  update any files that existed in the Docker image *that is not located in a
+  bound volume*, a new layer that is owned specifically by that instance of the
+  container is created. Container layers persist for the duration of the
+  container's life, but are removed on container removal.
+* Volume - A volume is persistent storage that exists as a directory structure
+  on the host OS, which can be bound to a container on startup. This can work
+  in several different ways, such as binding a specific directory or file from
+  the host OS into a specific location in the container (for example binding
+  `/etc/hosts` from the host OS to `/etc/hosts` in the container) or binding
+  a named volume (a Docker managed directory on the host OS) into a specific
+  location in the container (for example using a volume called `shared-volume`
+  into `/usr/share` in the container).
+* Network - A Docker network is functionality to connect running containers
+  to each other and/or other network interfaces running on the host OS.
+  These can vary from simply using the host OS's networking interfaces, to
+  user-defined networking bridges which are only used by particular containers.
+  All containers that require incoming/outgoing network traffic require a
+  Docker network of some description.
+* Repository - A Docker repository is storage for Docker images. When a Docker
+  image is built, it is stored in the local Docker repository. However, usually
+  you'll want to store the image in a location where other users can retrieve
+  it. Docker repositories can be private (so that only users with login
+  credentials can retrieve images from them), public (so that any user may
+  retrieve an image from them) or a mixture of both. The Docker CLI includes
+  commands that allow you to pull/push images from/to repositories.
+
+### 2. Installing Docker
+
+How you install Docker onto your local host OS is dependent on the OS itself
+and the distribution that you're running. Docker has instructions available
+that allow the user to easily carry this out
+[here](https://docs.docker.com/install/).
+
+An important note here. When installing Docker under Linux, the Docker daemon
+(usually, unless changed) runs as `root` (under Windows and macOS, this is not
+an issue). As such, you'll need to follow the instructions to add any user that
+also wants to run the `docker` command to the `docker` group. If you don't do
+this, only the `root` user will be able to use Docker under Linux. For
+convenience, the command to do this is:
+```
+$ sudo usermod -aG docker <your-user>
+```
+Where `<your-user>` is the username for the user to run as non-`root`.
+However ensure that this is the latest command under the Docker installation
+instructions before doing so. You'll need to log out of the shell and then
+back in for the changes to take effect.
+
+Under macOS and Windows this is slightly different, and the installing user will
+be asked to enter their credentials so that the Docker Hypervisor/VM has
+permission to run in the background.
+
+Once you've installed Docker, you should be able to open a new shell terminal
+and verify that Docker is running correctly by running:
+```
 $ docker version
 Client: Docker Engine - Community
  Version:           19.03.5
@@ -109,118 +226,6 @@ Server: Docker Engine - Community
  docker-init:
   Version:          0.18.0
   GitCommit:        fec3683
-```
-
-### 1. Introduction to Docker
-
-Docker allows the execution of software in self-enclosed packages called
-'containers'. Containers are essentially small execution environments, and
-can range from being tiny environments where only a few binaries are included,
-to fully blown Linux distributions such as Debian or Ubuntu where many packages
-can be included for the service to use (eg. via the use of `apt-get`).
-
-As such, Docker features some very useful benefits:
-* The ability to run applications/binaries in a sandboxed execution environment
-    where any malicious code will not have access to the host OS.
-* Easy and rapid deployment to a machine that Docker is installed on, with the
-    assurance that the containers will run in the same way as on any other
-    system with Docker installed.
-* Rapid development due to the quick building and recreation of containers, as
-    opposed to having to reinstall an OS and dependencies on a bare-metal or
-    Viritualised system.
-
-Containerisation is an alternative form of providing host OS separation to that
-of an execution environment, where other forms include Virtualisation, where
-machine resources (such as CPU cores, memory and disk space) are partitioned
-off from the host OS and used to run a guest OS instead. Unlike Virtualisation,
-Containerisation uses host OS resources as it needs them at runtime. As such,
-there is no need to pre-allocate resources.
-
-Docker runs as a service on a machine, and depending on the host OS, how this
-occurs varies:
-* Linux - Runs as an OS daemon service (such as a `systemd` unit
-   file), which is then sent command via the `docker` and `docker-compose` clients.
-* macOS - A Xen Hypervisor Virtual Machine runs the Docker service, and a UI
-  and CLI client connects to it.
-* Windows - A VM (called MobyVM) runs, with the UI and CLI client connecting to
-  * it.
-
-At this point, it's worth introducing such terminology, so that we can easily
-refer to concepts in the future. It's worth noting that some of the concepts
-described in the terminology will be described later in the exercises.
-
-* Layers - A layer is part of a Docker Image or Container. It represents a
-  file system layout, comprised of both directories and files. Layers are
-  created during the building of a Docker image, or whilst a container is
-  currently running.
-* Image - A Docker image is self-contained object representing a file system,
-  comprised of Docker layers. The number of layers in an image vary from 1 - n,
-  with 'n' being resource-bound. Images are created from Dockerfiles, which
-  contain a number of directives that allow the image to be created by carrying
-  out operations such as copying files into it, executing commands to configure
-  the image (such as `apt-get` from a Debian base image, or running bash scripts
-  to generate configuration files) and determining which binary will be executed
-  when the image is run as a container.
-* Container - A Docker container is a running instance of an image. When an
-  image is selected to be run, a new container is created that uses the layers
-  from the Docker image as the base filesystem (the image acts as a 'template'
-  for the container and the container never alters the image), and then runs any
-  command that has been given. Should the container create any new files, or
-  update any files that existed in the Docker image *that is not located in a
-  bound volume*, a new layer that is owned specifically by that instance of the
-  container is created. Container layers persist for the duration of the
-  container's life, but are removed on container removal.
-* Volume - A volume is persisent storage that exists as a directory structure
-  on the host OS, which can be bound to a container on startup. This can work
-  in several different ways, such as binding a specific directory or file from
-  the host OS into a specific location in the container (for example binding
-  `/etc/hosts` from the host OS to `/etc/hosts` in the container) or binding
-  a named volume (a Docker managed directory on the host OS) into a specific
-  location in the container (for example using a volume called `shared-volume`
-  into `/usr/share` in the container).
-* Network - A Docker network is functionality to connect running containers
-  to each other and/or other network interfaces running on the host OS.
-  These can vary from simply using the host OS's networking interfaces, to
-  user-defined networking bridges which are only used by particular containers.
-  All containers that require incoming/outgoing network traffic require a
-  Docker network of some description.
-* Repository - A Docker repository is storage for Docker images. When a Docker
-  image is built, it is stored in the local Docker repository. However, usually
-  you'll want to store the image in a location where other users can retrieve
-  it. Docker repositories can be private (so that only users with login
-  credentials can retrieve images from them), public (so that any user may
-  retrieve an image from them) or a mixture of both. The Docker CLI includes
-  commands that allow you to pull/push images from/to repositories.
-
-### 2. Installing Docker
-
-How you install Docker onto your local host OS is dependant on the OS itself
-and the distribution that you're running. Docker has a set of pages available
-that allow the user to easily carry this out
-[here](https://docs.docker.com/install/).
-
-An important note here. When installing Docker under Linux, the Docker daemon
-(usually, unless changed) runs as `root`. As such, you'll need to follow the
-to add any user that also wants to run the `docker` command
-to the `docker` group. If you don't do this, only the `root` user will be
-able to use Docker under Linux. For convenience the command to do this is:
-```
-$ sudo usermod -aG docker <your-user>
-```
-Where `<your-user>` is the username for the user to run as non-`root`.
-However ensure that this is the latest command under the Docker installation
-instructions before doing so. You'll need to log out of the shell and then
-back in for the changes to take effect.
-
-Under macOS and Windows this is slightly different, and the installing user will
-be asked to enter their credentials so that the Docker Hypervisor/VM has
-permission to run in the background.
-
-Once you've installed Docker, you should be able to open a new shell terminal
-and verify that Docker is running correctly by running:
-```
-$ docker images
-REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE
 ```
 
 ### 3. The `docker` Command Line Interface
@@ -331,16 +336,16 @@ FROM debian:buster
 
 COPY helloworld /usr/sbin/helloworld
 
-CMD "/usr/sbin/helloworld"
+CMD "/usr/src/helloworld"
 ```
 
 This Dockerfile:
 1. Uses the latest Debian Buster base image (containing all the files in the
    Buster release) as the base for the image's file system.
 2. Copies a local binary (`helloworld`) from the same directory that the
-   Dockerfile is in into the image's `/usr/sbin` directory.
+   Dockerfile is in into the image's `/usr/src` directory.
 3. Sets the command that should be run when the image is run as a conatiner
-   (in this case, it will run the `/usr/sbin/helloworld`) binary.
+   (in this case, it will run the `/usr/src/helloworld`) binary.
 
 We'll go through some of the most common Dockerfile directives, and what they
 do, followed by an exercise to build a very simple Dockerfile, but we'll
@@ -375,45 +380,45 @@ this base image:
 # simple-base are now available to work on.
 FROM simple-base
 ```
-(You'll note that comments can be used in Dockerfiles, by simply using `#` at
-the start of the line, very much like Linux/Unix shell operations.)
+You'll note that comments can be used in Dockerfiles, by simply using `#` at
+the start of the line, very much like Linux/Unix shell operations.
 
 Further directives in the file can carry out operations on the inherited
 filesystem, as well as creating new layers which include new or modified
-directories and files. Every time the filesystem is modified in any way in the
-Dockerfile, a new layer is created. This usually occurs after each full
-directive.
+directories and files. Every time the filesystem is modified via the Dockerfile,
+a new layer is created. This usually occurs after each directive.
 
 As well as inheriting from base images, it's also possible to start a completely
 new Docker image which does not include any layers. This can be achieved by
-using the special image name `scratch`. This tells Docker it should try to
+using the special image name `scratch`. This tells Docker it shouldn't try to
 inherit from any other image, but start a brand new set of layers. In fact, this
 is how a large number of 'standard' base images start, such as the Docker
-versions of Linux distributions work, by starting from `scratch` and copying in
-all of the files that build up that version of Linux.
+versions of Linux distributions, by starting from `scratch` and copying in all
+of the files that build up that distribution of Linux.
 
 #### 4.2 [`COPY`](https://docs.docker.com/engine/reference/builder/#copy) Directive
 
-So now we now how to use a base image to start with a filesystem in our own
-image, but how do we get new files into it?
+Now we now how to use a base image to start with a filesystem in our own image,
+but how do we get new files into it?
 
 This is where the `COPY` directive comes in. This allows the copying of files
 from the host's local filesystem into the Docker image being built. It's fairly
-similar to the standard copying commands under most OS variants these days in
+similar to the standard copying commands under most OS variants in
 that it takes the location of a source file or directory on the host and a
 destination where the contents of the source should be copied inside the image.
-`COPY` preserves all flags on the file when copied, so for example if you copy
-a shell script that has the execution flag set, this will be preserved when
+`COPY` preserves all flags on the file when copied. For example, if you copy
+a shell script that has the execution flag set this will be preserved when
 copied into the image.
 
 **NOTE:** The directory location of the Dockerfile being used to build the image
     the image is known as the build context. Any files in the build context, or
-    any of it's sub-directory hierarchy is also part of the build context.
+    any of it's sub-directory hierarchy, is also part of the build context.
     This can be changed by other commands, but this is the default and we'll be
     using it for the moment.
 
-The following will recursively copy the contents of the  `directory-3` directory
-the current build context into the image at the location `/directory-3`:
+The following will recursively copy the contents of the  `directory-3`
+directory in the current build context into the image at the location
+`/directory-3`:
 ```
 COPY directory-3 /directory-3/
 ```
@@ -434,12 +439,12 @@ context. Therefore files must be available to that context (you can't, for
 example, reference files that are in the directory above where the Dockerfile
 is, because it's not within the same context).
 
-`COPY` has a few switches to, that include abilities to set ownership and
+`COPY` has a few switches that include abilities to set ownership and
 on files as they're copied. Refer to the Dockerfile documentation for more
 details.
 
-If you want to use files that are outside of the build context, there are a few
-tricks we can use, which we'll discuss in the 'Advanced' section.
+If you want to use files that are outside of the build context there are a few
+tricks we can use, which we'll discuss in an advanced Docker Masterclass.
 
 #### 4.3 [`RUN`](https://docs.docker.com/engine/reference/builder/#run) Directive
 
@@ -493,14 +498,14 @@ a file and then outputing the contents to the build.
 The `CMD` directive is usually the last directive in a Dockerfile. This informs
 Docker what should be run when a container instance is created from an image.
 
-This tends to be a call to a single binary, or script. Once the call has
+This tends to be a call to a single binary or script. Once the call has
 finished, the container will exit. Because most Docker images are designed
 around services or daemons (for example a web server or similar), it's unusual
 for a `CMD` to not start up a daemon or script that restarts should that service
 exit. But this doesn't mean it has to be like that.
 
 Taking the example from the `RUN` directive explanation, the following will set
-the entrance command to list the entries in the root of the filing system:
+the entrance command to list the entries in the root of the file system:
 ```
 CMD /list-files.sh
 ```
@@ -514,7 +519,7 @@ CMD echo "Hello there!"
 We've actually used what is known as the 'shell' form of the `CMD` directive
 here. In this case, before the `/list-files.sh` script is run, a shell is
 created inside the container to run the command (it is essentially wrapped
-inside `/bin/sh -c <command>`).
+inside a `/bin/sh -c <command>`).
 
 There's also an alternative form of the command, called the 'exec' form, which
 uses a JSON array to call an executable and pass parameters to it *without* a
@@ -525,11 +530,13 @@ CMD ["/bin/sh", "-c", "/list-files.sh"]
 Here, the command being executed is the shell itself (`/bin/sh`) and the
 parameters passed signify to run a command in it (`-c`) and the command to
 run (`/list-files.sh`). Of course, if the command to execute was a binary,
-we could just use `CMD ["/path/to/binary", "param1", "param2"]` instead.
+we could just use `CMD ["/path/to/binary", "param1", "param2"]` instead, and
+in fact because `list-files.sh` includes the environment to use in its header
+(`#!/bin/bash`) we could run the script without invoking `bash` first.
 
 At this point, most users would say "I think I'll use the shell form, it's much
 quicker to write". But beware! Whilst the second form of `CMD` does indeed
-require you to use a shell to invoke a script, it *also* ensures that signals
+require you to use a JSON structure, it *also* ensures that signals
 passed to the container are propagated to it. That means that when the
 container is stopped using `docker stop`, the `SIGTERM` signal is correctly
 passed to the script or executable that allows it to clean up correctly. Using
@@ -547,7 +554,7 @@ you want to run with different parameters, or use the base image because of the
 filesystem layers it includes).
 
 The `CMD` directive can also be used in conjunction with the `ENTRYPOINT`
-directive, which we'll describe in some more advanced exercises.
+directive, which we'll describe in a more advanced Docker Masterclass.
 
 ### 5. Building a Docker Image
 
@@ -608,8 +615,8 @@ RUN cd /usr/src/app \
 After changing directory into the `/usr/src/app` directory, the `npm install`
 command is run, which uses the `package.json` file previously copied to this
 location to install all of the required NPM packages specified in it.
-This obviously creates a `/usr/src/app/node_modules` directory with all the
-dependencies in.
+This creates a `/usr/src/app/node_modules` directory with all the dependencies
+in.
 
 ```
 CMD ["/usr/local/bin/node", "/usr/src/app/index.js"]
@@ -675,7 +682,7 @@ during this you can see each individual image layer that makes up the base image
 being pulled), before copying the files into the image, carrying out the NPM
 install and then setting the command to run on container instantiation.
 
-And another really important point to note here is that when a Dockerfile is
+Another really important point to note here is that when a Dockerfile is
 processed, new layers for that image are created by particular directives.
 Generally, new layers are created by each new Dockerfile directive (this is not
 always true, but at this point, thinking about it in this way is useful). As
@@ -696,8 +703,8 @@ If using the container name, note that a Docker image repository name can be
 used with or without a tag, however if there is more than one tag for an image's
 Docker repository name, the `latest` version will be assumed if not given.
 
-More information about repository naming and tags will be discussed when we get
-to detailed information about Dockerhub.
+More information about repository naming and tags will be discussed in a later
+exercise.
 
 As you can see, we have a total of two images. The first is expected, because
 this is the image we just built (`simple-docker-app`), but the base image that
@@ -709,15 +716,14 @@ referenced and used by the container. This happens regardless of the number of
 times an image is used, or how many parents it has. Because layers are
 referenced and not directly copied, this allows many different containers to
 run without the resource penalty of copying the same files and directory layouts
-for each separate instance, thus saving a large amount of space. We'll go more
-into how this works later in the Masterclass.
+for each separate instance, thus saving a large amount of space.
 
 #### 5.1 [`WORKDIR`](https://docs.docker.com/engine/reference/builder/#workdir) Directive
 
-So we now have a built image. However, even though we've a few steps, there's a
+We now have a built image. However, even though we've a few steps, there's a
 few things we could so to improve the way it's built. The first is to specify
 a working directory. The `WORKDIR` directive tell the Docker daemon that this is
-our default working directory.Think of it a bit like running `cd` to change to
+our default working directory. Think of it a bit like running `cd` to change to
 the directory specified before running any commands.
 
 With that in mind, add a new line to our Dockerfile after the `FROM` directive:
@@ -800,11 +806,11 @@ $ docker build -t simple-docker-app .
 
 ### 6. Docker Containers
 
-So, we now have a built Docker image, let's run it! First it's worth noting a
+We now have a built Docker image, let's run it! First it's worth noting a
 little bit about what happens when you run a Docker image and use it to create
 a new container.
 
-Docker containers run as processes spawned by the Docker daemon, Linux-based
+Docker containers run as processes spawned by the Docker daemon. Linux-based,
 they use the underlying host kernel to do so. Under host OSs such as macOS
 and Windows, these kernels are supplied by minimal Linux VMs that are closely
 bound to the underlying host OS so that contexts such as device nodes,
@@ -832,7 +838,7 @@ $ docker run --tty simple-docker-app
 Echo server is up and listening...
 ```
 We'll explain the significance of `--tty` later, but for now it just means that
-we can stop the container using `Ctrl+C` which we're done with it.
+we can stop the container using `Ctrl+C` when we're done with it.
 The act of running the creates a new container instance based on that
 image, which is now running under the Docker daemon. Open a new terminal (which
 from this point on we'll call T2 with the terminal you ran the Docker image in
@@ -864,14 +870,8 @@ listening on port 9854, but `curl` can't get a connection to it. The reason is
 that whilst the Express server in the container is trying to listen to the
 port, we haven't actually told the Docker daemon that the container should open
 a connection to the same port. This actually demonstrates a fundamental
-principal behind containerisation, in that unless specifically instructed,
+principal behind containerization, in that unless specifically instructed,
 Docker sandboxes all running containers securely away from the host OS.
-
-We'll get into Docker networking later and how traffic is routed, but for now
-all we need to know is that to ensure that traffic can get in and out of the
-container so that Express can receive traffic on port 9854, we need to run the
-container with the `--publish` command to signal to the Docker daemon that we'd
-like to 'publish' traffic into it from the host OS.
 
 #### 6.2 Stopping and Restarting a Container
 
@@ -895,7 +895,7 @@ CONTAINER ID        IMAGE               COMMAND             CREATED             
 But it will show up as a stopped container in the list of all containers if we
 pass `--all` (shortened form `-a`) to `docker ps`:
 ```
-$ docker ps -a
+$ docker ps --all
 CONTAINER ID        IMAGE               COMMAND                  CREATED              STATUS              PORTS               NAMES
 61578a11c16e        simple-docker-app   "/usr/bin/entry.sh /…"   About a minute ago   Exited (0) a minute ago                 tender_gagarin
 ```
@@ -924,11 +924,17 @@ $ docker stop 61578a11c16e
 Instead of using `docker run`, we could also use
 [`docker create`](https://docs.docker.com/engine/reference/commandline/create/)
 to create a new container from an image. However, this command only creates a
-container and does not run it. `docker create` take many of the same parameters
+container and does not run it. `docker create` takes many of the same parameters
 as `docker run`. To start running a created container, you then need to use
 `docker start` on the container name or ID.
 
 #### 6.4 Publishing Container Ports
+
+We'll get into Docker networking later and how traffic is routed, but for now
+all we need to know is that to ensure that traffic can get in and out of the
+container so that Express can receive traffic on port 9854, we need to run the
+container with the `--publish` command to signal to the Docker daemon that we'd
+like to 'publish' traffic into it from the host OS.
 
 We're going to re-run the image again, but this time specifying that the
 right port should be opened up into the container. In T1, run the following:
@@ -944,9 +950,9 @@ Note that we specified 9854 *twice* as the arguments to the `--publish` switch
 (this can be shortened to `-p`).
 This isn't an error, but it lets us map a specific port inside the container
 to a port on the host. In this case, we want both port numbers to be the same,
-but you can change the host port by altering the first argument to it to be
-the port on the host you want to use, ie.
-`--publish "<hostPort>:<containerPort>"`.
+but you can change the host port by altering the first argument to be the port
+on the host you want to use, ie.
+`--publish <hostPort>:<containerPort>`.
 As a final note, `--publish` also allows ranges of ports from the host to be
 published (for example mapping all traffic from ports 1234 to 1238 on the host
 to a single port inside the container).
@@ -992,7 +998,7 @@ by adding:
 ```
 EXPOSE 9854
 ```
-To our Dockerfile (it doesn't matter particularly where for this example, but
+to our Dockerfile (it doesn't matter particularly where for this example, but
 good practice is near the start of the Dockerfile, after the `FROM` line).
 (If you wanted to expose a UDP port, you'd simply specify `EXPOSE 9854/udp`.)
 
@@ -1030,10 +1036,11 @@ Successfully built 8d1460ff22b2
 Successfully tagged simple-docker-app:latest
 ```
 Now we'll run the new version of the image, but we'll remove the use of
-`--publish` and instead use the `-P` switch instead, which will publish all
-ports specifed in `EXPOSE` directives in the image to the host:
+`--publish` and instead use the `--publish-all` (shortened form `-P`) switch
+instead, which will publish all ports specifed in `EXPOSE` directives in the
+image to the host:
 ```
-$ docker run --tty -P simple-docker-app
+$ docker run --tty --publish-all simple-docker-app
 
 > simple-docker-app@1.0.0 start /usr/src/app
 > node index.js
@@ -1053,8 +1060,8 @@ CONTAINER ID        IMAGE               COMMAND                  CREATED        
 636c8f11fee2        simple-docker-app   "/usr/bin/entry.sh /…"   3 minutes ago       Up 3 minutes        0.0.0.0:32769->9854/tcp   epic_montalcini
 ```
 Interestingly, whilst port 9854 in the container *is* mapped a port on the host,
-it's not mapped to port 9854. This is because `-P` maps ports specified by the
-`EXPOSE` directive to
+it's not mapped to port 9854. This is because `--publish-all` maps ports
+specified by the `EXPOSE` directive to
 [ephemeral ports](https://en.wikipedia.org/wiki/Ephemeral_port) on the host,
 usually the next free one. This initially doesn't sound particularly useful,
 but becomes more so in the context of Docker deployments to Cloud hosts where
@@ -1132,6 +1139,7 @@ We can easily check this by running the following in the terminal:
 $ docker images
 REPOSITORY                        TAG                 IMAGE ID            CREATED             SIZE
 simple-docker-app                 latest              8d1460ff22b2        29 minutes ago      272MB
+...
 ```
 The latest image ID for `simple-docker-app:latest` is `8d1460ff22b2`. Let's
 try rebuilding the image:
@@ -1164,6 +1172,7 @@ ID build is *still* `8d1460ff22b2`, and the name remains the same:
 $ docker images
 REPOSITORY                        TAG                 IMAGE ID            CREATED             SIZE
 simple-docker-app                 latest              8d1460ff22b2        32 minutes ago      272MB
+...
 ```
 If we were to make any changes to the Dockerfile or any of the files built into
 the image, the ID and the name would change again, to denote that the `latest`
@@ -1355,7 +1364,7 @@ We will now be able to run the image without the specific tag (defaulting to
 `latest`) again.
 
 However, if we now change something that alters the image that we build, this
-will change matters slightly. In your code editor, change `index.js` and add a
+will change he situation. In your code editor, change `index.js` and add a
 line at the very top that says:
 ```
 // This comment changes the image
@@ -2333,6 +2342,10 @@ It's important to note that, should your container require elevated permissions
 or capabilities above that of the default controls, you find the minimal number
 of changes required for the functionality required. This way your container
 will continue to be secured away from the host OS.
+
+### 11. Docker Repositories
+
+FILL THIS OUT
 
 ## Conclusion
 
