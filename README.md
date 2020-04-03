@@ -2467,7 +2467,7 @@ don't own it.
 Instead, we're going to ensure that Docker Hub knows that the image is owned
 by us by creating a new tag for the repository to include our username. We'll be
 pushing the `latest` version of the image we built, so we'll use
-[`docker tag`][(](https://docs.docker.com/engine/reference/commandline/tag/))
+[`docker tag`](https://docs.docker.com/engine/reference/commandline/tag/)
 to tag that:
 ```
 $ docker tag simple-docker-app:latest dockerhub/simple-docker-app:latest
