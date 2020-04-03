@@ -49,8 +49,6 @@ It is assumed that the reader has access to the following:
 * A suitable text editor for developing code on your development platform (eg.
     [Visual Code](https://code.visualstudio.com/))
 * A suitable shell environment for command execution (such as `bash`)
-* A local installation of [Docker](https://docs.docker.com/v17.09/engine/installation/)
-	as well as a familiarity with [Dockerfiles](https://docs.docker.com/engine/reference/builder/)
 
 ## Exercises
 
@@ -311,7 +309,7 @@ executed in series. Here's a very basic example:
 ```dockerfile
 FROM debian:buster
 
-COPY helloworld /usr/sbin/helloworld
+COPY helloworld /usr/src/helloworld
 
 CMD "/usr/src/helloworld"
 ```
@@ -375,7 +373,7 @@ of the files that build up that distribution of Linux.
 
 #### 4.2 [`COPY`](https://docs.docker.com/engine/reference/builder/#copy) Directive
 
-Now we now how to use a base image to start with a filesystem in our own image,
+Now we know how to use a base image to start with a filesystem in our own image,
 but how do we get new files into it?
 
 This is where the `COPY` directive comes in. This allows the copying of files
@@ -388,8 +386,8 @@ a shell script that has the execution flag set this will be preserved when
 copied into the image.
 
 **NOTE:** The directory location of the Dockerfile being used to build the image
-    the image is known as the build context. Any files in the build context, or
-    any of it's sub-directory hierarchy, is also part of the build context.
+    is known as the build context. Any files in the build context, or any of
+    its sub-directory hierarchy, is also part of the build context.
     This can be changed by other commands, but this is the default and we'll be
     using it for the moment.
 
@@ -483,7 +481,8 @@ for a `CMD` to not start up a daemon or script that restarts should that service
 exit. But this doesn't mean it has to be like that.
 
 Taking the example from the `RUN` directive explanation, the following will set
-the entrance command to list the entries in the root of the file system:
+the command to run when the container is instantiated to list the entries in the
+root of the file system:
 ```
 CMD /list-files.sh
 ```
@@ -579,7 +578,7 @@ This declares that the Docker image built should inherit from the
 Debian Node.js image built and tagged by balena. This image includes all
 standard Debian packages, binaries and libraries, as well as a copy of the
 Node.js language and runtime, and npm. This allows us to easily run the Node.js
-sourcecode located in `index.js`.
+source code located in `index.js`.
 
 `COPY * /usr/src/app/`
 This copies all of the files in the `simple-docker-app` directory (the current
@@ -679,7 +678,7 @@ Note that each image has a repository name, tag and image ID. Most Docker
 commands working with images can take the name of the container or the ID.
 If using the container name, note that a Docker image repository name can be
 used with or without a tag, however if there is more than one tag for an image's
-Docker repository name, the `latest` version will be assumed if not given.
+Docker repository name, the `latest` tag will be assumed if not given.
 
 More information about repository naming and tags will be discussed in a later
 exercise.
@@ -933,7 +932,7 @@ on the host you want to use, ie.
 `--publish <hostPort>:<containerPort>`.
 As a final note, `--publish` also allows ranges of ports from the host to be
 published (for example mapping all traffic from ports 1234 to 1238 on the host
-to a single port inside the container).
+to a single port inside the container would be `--publish 1234-1238:1234-1238`).
 
 In T2, have a look at the output of `docker ps` again:
 ```
@@ -956,7 +955,7 @@ default if not otherwise stated. To use UDP instead, simply prefix the published
 ports list with `/udp`, eg. `--publish 9854/udp:9854/udp` would map any traffic
 from UDP port 9854 on the host to UDP port 9854 in the container.
 
-Finally let's try `curl` again in T2:
+Finally let's try the `curl` command again in T2:
 ```
 $ curl -XPOST http://localhost:9854/echo -H 'Content-type: text/plain' -d 'Hello there!'
 Hello there!
@@ -1083,7 +1082,9 @@ However, looking at the list, this seems strange at first. We we just kept
 running our `simple-docker-app`, so why are there several instances of it? Well,
 every time we used `docker run simple-docker-app`, we were asking the Docker
 daemon to run a *new* instance of the image, not to run the same container
-image that we had before.
+image that we had before. If we want to re-start an already existing container,
+we'd simply use
+[`docker start`](https://docs.docker.com/engine/reference/commandline/start/).
 
 ### 7. Tags and Caching in Docker Builds
 
@@ -1098,7 +1099,7 @@ You can also see from the container list that only the last container ran using
 the `simple-docker-app` image, but why is this? If you remember earlier we
 discussed that each image name had a repository and tag section. Because we
 have rebuilt the image several times with changes to the Dockerfile, we've
-actually changed the resulting image's filing system layers and unique hash.
+actually changed the resulting image's file system layers and unique hash.
 This has meant that the `latest` tag on the `simple-docker-app` repository has
 moved each time we've made changes to the image to the newly built version of
 it. In the above output, both images `d00c59983bd8` and `f50ceee6da24` *were*
@@ -1212,7 +1213,7 @@ docker rm $(docker ps --all --quiet)
 ```
 The `docker ps --all --quiet` command lists all instances of containers, running
 or not, and output their IDs and nothing else (the `--quiet` switch, which can
-also be shortened to `-q`). The `$()` wrapper pipes this to the `docker rm`
+also be shortened to `-q`). The `$()` wrapper executes this for the `docker rm`
 command, which then removes each of these container IDs from the local
 repository. You can individually remove a container instance either by using its
 name or ID, eg. `docker rm <IDorName>`.
@@ -1222,7 +1223,7 @@ After this, the next command is run:
 docker rmi $(docker images --quiet)
 ```
 Similarly to the `docker ps` command, the `--quiet` switch to `docker images`
-will only output the IDs of the images. This is then piped to `docker rmi`
+will only output the IDs of the images. This is then exectured for `docker rmi`
 which will remove each image by its ID. Again, you can manually remove a
 Docker image from the local repository with `docker rmi <IDorRepositoryName>`.
 
@@ -1468,7 +1469,7 @@ directive and the layers already in the local repository, and determines if it
 actually needs to create a new layer for that directive or just re-use what
 already exists.
 
-Let's visualise an example here to make it a bit clearer. Taking the contents
+Let's visualize an example here to make it a bit clearer. Taking the contents
 of the `simple-docker-app` Dockerfile you currently have, it'll look something
 like this:
 ```
@@ -2037,11 +2038,11 @@ $ docker stop 6c4e438ffa43683d7cb8a9f52ba72c4ec874acd11cd5842ae34cba8243c3c527
 ### 9. Bind Mounts and Volumes
 
 As we've discussed previously, when an image is run and becomes a container
-instance it uses the image's layers as the base filing system for that
+instance it uses the image's layers as the base file system for that
 container. Whenever a container makes changes to the file system, a new layer
 is created for that specific container instance with the relevant changes.
 
-Because of this, any changes that the container makes to the filing system is
+Because of this, any changes that the container makes to the file system is
 only persistent for the life of that particular instance. Other instances will
 use different layers, and none of these changes will occur in the image.
 
@@ -2465,7 +2466,9 @@ don't own it.
 
 Instead, we're going to ensure that Docker Hub knows that the image is owned
 by us by creating a new tag for the repository to include our username. We'll be
-pushing the `latest` version of the image we built, so we'll tag that:
+pushing the `latest` version of the image we built, so we'll use
+[`docker tag`][(](https://docs.docker.com/engine/reference/commandline/tag/))
+to tag that:
 ```
 $ docker tag simple-docker-app:latest dockerhub/simple-docker-app:latest
 $ docker images
