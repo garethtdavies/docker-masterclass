@@ -4,45 +4,22 @@
 * **Maximum Expected Time To Complete:** 2 hours
 
 ## Table of Contents
-- [Docker Masterclass](#docker-masterclass)
-  - [Table of Contents](#table-of-contents)
-  - [Introduction](#introduction)
-  - [Hardware and Software Requirements](#hardware-and-software-requirements)
-  - [Exercises](#exercises)
-    - [1. Introduction to Docker](#1-introduction-to-docker)
-    - [2. Installing Docker](#2-installing-docker)
-    - [3. The `docker` Command Line Interface](#3-the-docker-command-line-interface)
-    - [4. Introduction to Dockerfiles](#4-introduction-to-dockerfiles)
-      - [4.1 `FROM` Directive](#41-from-directive)
-      - [4.2 `COPY` Directive](#42-copy-directive)
-      - [4.3 `RUN` Directive](#43-run-directive)
-      - [4.4 `CMD` Directive](#44-cmd-directive)
-    - [5. Building a Docker Image](#5-building-a-docker-image)
-      - [5.1 `WORKDIR` Directive](#51-workdir-directive)
-    - [6. Docker Containers](#6-docker-containers)
-      - [6.1 Running a Container](#61-running-a-container)
-      - [6.2 Stopping and Restarting a Container](#62-stopping-and-restarting-a-container)
-      - [6.3 Creating a Container](#63-creating-a-container)
-      - [6.4 Publishing Container Ports](#64-publishing-container-ports)
-      - [6.5 EXPOSE Directive](#65-expose-directive)
-      - [6.6 Container Instances](#66-container-instances)
-    - [7. Tags and Caching in Docker Builds](#7-tags-and-caching-in-docker-builds)
-      - [7.1 Tagging Images](#71-tagging-images)
-      - [7.2 Build Caching](#72-build-caching)
-    - [8. Running Containers in Detached, Command and Interactive Modes](#8-running-containers-in-detached-command-and-interactive-modes)
-      - [8.1 Detached Mode](#81-detached-mode)
-      - [8.2 Command Mode](#82-command-mode)
-      - [8.3 Interactive Mode](#83-interactive-mode)
-        - [8.3.1 Via `docker run`](#831-via-docker-run)
-        - [8.3.2 Via `docker exec`](#832-via-docker-exec)
-    - [9. Bind Mounts and Volumes](#9-bind-mounts-and-volumes)
-      - [9.1 Bind Mounts](#91-bind-mounts)
-      - [9.2 Volumes](#92-volumes)
-    - [10. Container Privileges and Permissions](#10-container-privileges-and-permissions)
-      - [10.1 Users in Containers](#101-users-in-containers)
-      - [10.2 Namespaces, Capabilities, Networking and Control Groups](#102-namespaces-capabilities-networking-and-control-groups)
-    - [11. Docker Registries and Repositories](#11-docker-registries-and-repositories)
-  - [Conclusion](#conclusion)
+- [Table of Contents](#table-of-contents)
+- [Introduction](#introduction)
+- [Hardware and Software Requirements](#hardware-and-software-requirements)
+- [Exercises](#exercises)
+  - [1. Introduction to Docker](#1-introduction-to-docker)
+  - [2. Installing Docker](#2-installing-docker)
+  - [3. The `docker` Command Line Interface](#3-the-docker-command-line-interface)
+  - [4. Introduction to Dockerfiles](#4-introduction-to-dockerfiles)
+  - [5. Building a Docker Image](#5-building-a-docker-image)
+  - [6. Docker Containers](#6-docker-containers)
+  - [7. Tags and Caching in Docker Builds](#7-tags-and-caching-in-docker-builds)
+  - [8. Running Containers in Detached, Command and Interactive Modes](#8-running-containers-in-detached-command-and-interactive-modes)
+  - [9. Bind Mounts and Volumes](#9-bind-mounts-and-volumes)
+  - [10. Container Privileges and Permissions](#10-container-privileges-and-permissions)
+  - [11. Docker Registries and Repositories](#11-docker-registries-and-repositories)
+- [Conclusion](#conclusion)
 
 ## Introduction
 
@@ -440,8 +417,9 @@ example, reference files that are in the directory above where the Dockerfile
 is, because it's not within the same context).
 
 `COPY` has a few switches that include abilities to set ownership and
-on files as they're copied. Refer to the Dockerfile documentation for more
-details.
+on files as they're copied. Refer to the
+[Dockerfile documentation](https://docs.docker.com/engine/reference/builder/#copy)
+for more details.
 
 If you want to use files that are outside of the build context there are a few
 tricks we can use, which we'll discuss in an advanced Docker Masterclass.
@@ -457,7 +435,7 @@ Because the `RUN` command has access to all of the filesystem layers currently
 available *at the point when the directive is executed* inside the image, it's
 used to do things like install useful libraries and packages. For example,
 suppose we're using a Debian Buster base image, and we want to install the
-NodeJS package, we can use `RUN` to execute the `apt-get` binary to do this:
+Node.js package, we can use `RUN` to execute the `apt-get` binary to do this:
 ```
 RUN apt-get update \
     && apt-get install -y nodejs
@@ -566,7 +544,7 @@ repository, as we'll use this for the rest of the exercises, e.g.:
 ```
 $ export BALENA_DOCKER_MASTERCLASS=~/docker-masterclass
 ```
-Now change directory to the single-service-app directory in the root of this
+Now change directory to the simple-docker-app directory in the root of this
 masterclass repository, e.g.:
 ```
 $ cd $BALENA_DOCKER_MASTERCLASS/simple-docker-app
@@ -598,9 +576,9 @@ through exactly what this Dockerfile does:
 `FROM balenalib/intel-nuc-debian-node:latest`
 This declares that the Docker image built should inherit from the
 `balenalib/intel-nuc-debian-node:latest` image, which in this case is the latest
-Debian NodeJS image built and tagged by balena. This image includes all
+Debian Node.js image built and tagged by balena. This image includes all
 standard Debian packages, binaries and libraries, as well as a copy of the
-NodeJS language and runtime, and NPM. This allows us to easily run the NodeJS
+Node.js language and runtime, and npm. This allows us to easily run the Node.js
 sourcecode located in `index.js`.
 
 `COPY * /usr/src/app/`
@@ -614,7 +592,7 @@ RUN cd /usr/src/app \
 ```
 After changing directory into the `/usr/src/app` directory, the `npm install`
 command is run, which uses the `package.json` file previously copied to this
-location to install all of the required NPM packages specified in it.
+location to install all of the required npm packages specified in it.
 This creates a `/usr/src/app/node_modules` directory with all the dependencies
 in.
 
@@ -624,7 +602,7 @@ CMD ["/usr/local/bin/node", "/usr/src/app/index.js"]
 As previously described, the `CMD` directive informs Docker what to run when
 the Docker image is instantiated as a container. In this case, because the
 directive is using the `exec` format, full paths to the command to run need to
-be given (`/usr/local/bin/node` for the NodeJS executable), as well as the
+be given (`/usr/local/bin/node` for the Node.js executable), as well as the
 source file (`/usr/src/app/index.js`).
 
 Once you've edited the Dockerfile, we can build a Docker image from it using
@@ -679,7 +657,7 @@ noticed, each of these steps corresponds to a Dockerfile directive. Therefore
 you can quickly see which directive is being run by the step that's being
 carried out. In this case, the Docker daemon pulls the base image required (and
 during this you can see each individual image layer that makes up the base image
-being pulled), before copying the files into the image, carrying out the NPM
+being pulled), before copying the files into the image, carrying out the npm
 install and then setting the command to run on container instantiation.
 
 Another really important point to note here is that when a Dockerfile is
@@ -710,7 +688,7 @@ As you can see, we have a total of two images. The first is expected, because
 this is the image we just built (`simple-docker-app`), but the base image that
 our Docker image has inherited from is also present
 (`balenalib/intel-nuc-debian-node`). This is because Docker stores each image,
-including base images that other inherit, separately inside the system. When
+including base images that others inherit, separately inside the system. When
 a container is created from an image, all the layers that make up the image are
 referenced and used by the container. This happens regardless of the number of
 times an image is used, or how many parents it has. Because layers are
@@ -791,7 +769,7 @@ file, as this exists in the `/usr/src/app` directory (which is our working
 directory).
 
 As we've now specified the working directory as `/usr/src/app`, we could also
-change the command used to actually run the NodeJS app to NPM, as it would find
+change the command used to actually run the Node.js app to npm, as it would find
 the `package.json` in the same directory and use the `start` section from it.
 
 Change the final `CMD` line to:
@@ -839,7 +817,7 @@ Echo server is up and listening...
 ```
 We'll explain the significance of `--tty` later, but for now it just means that
 we can stop the container using `Ctrl+C` when we're done with it.
-The act of running the creates a new container instance based on that
+The act of running creates a new container instance based on that
 image, which is now running under the Docker daemon. Open a new terminal (which
 from this point on we'll call T2 with the terminal you ran the Docker image in
 as T1), and enter:
@@ -1116,7 +1094,7 @@ caching to ensure quicker rebuilding of images.
 
 #### 7.1 Tagging Images
 
-You can also see from the  container list that only the last container ran using
+You can also see from the container list that only the last container ran using
 the `simple-docker-app` image, but why is this? If you remember earlier we
 discussed that each image name had a repository and tag section. Because we
 have rebuilt the image several times with changes to the Dockerfile, we've
@@ -1602,7 +1580,7 @@ This says to copy everything from the current build context into the
 `/usr/src/app` directory inside the image. But this *includes* the Dockerfile
 itself, which we've changed. Because of this, the layer output would not be
 the same as the ones from previous builds, as the contents of the Dockerfile
-is now different. There's a pretty obvious way round this, which is to *not*
+are now different. There's a pretty obvious way round this, which is to *not*
 copy the Dockerfile as part of the build context. There's a couple of different
 ways to do this.
 
@@ -1715,7 +1693,7 @@ COPY package.json index.js /usr/src/app/
 ```
 If we hadn't have already created a `.dockerignore` file, this would have much
 the same effect in that the Dockerfile would not be copied, but only the
-NPM package manifest and the source code.
+npm package manifest and the source code.
 
 Only copying what's required for a Docker image build is a very good habit to
 get into, and is usually used in conjunction with `.dockerignore` files to
@@ -1782,11 +1760,11 @@ As expected, because we've removed the two lines from the source file,
 everything from the `COPY` directive onwards has forced a cache bust and new
 layers. However, there's actually something we can do here to ensure that
 fewer new layers are required and that the majority of the build is used from
-the cache. Note that we need the NPM manifest (`package.json`) file to carry
-out the NPM installation of required modules. But this isn't actually something
+the cache. Note that we need the npm manifest (`package.json`) file to carry
+out the npm installation of required modules. But this isn't actually something
 that altering the source file changes. As we're not changing the manifest,
 we could actually split up the `COPY` commands so that if only the source file
-changes, the previous NPM installation layer is used from cache. Change the
+changes, the previous npm installation layer is used from cache. Change the
 following lines in the Dockerfile:
 ```
 COPY package.json index.js /usr/src/app/
@@ -1867,7 +1845,7 @@ Removing intermediate container 0c15ac7cfc32
 Successfully built 81a2fcf7791c
 Successfully tagged simple-docker-app:latest
 ```
-The build was far quicker as NPM didn't have to reinstall the used modules
+The build was far quicker as npm didn't have to reinstall the used modules
 again, and the filesystem layer already built was reused:
 ```
 Step 5/7 : RUN npm install
@@ -1883,7 +1861,7 @@ this can be critical in cutting down build time from hours to minutes.
 So far we've `docker run` to create a new container, which outputs all `stdout`
 to the console.
 
-However, there are multiple ways in which a container can be instanced.
+However, there are multiple ways in which a container can be instantiated.
 
 #### 8.1 Detached Mode
 
@@ -1972,16 +1950,16 @@ this, and it's usually used in conjunction with `--tty` (shortened form `-t`) to
 allocate a psuedo terminal to the container. This allows us to perform many
 operations as well as send signals (which is why `Ctrl+C` stops the container
 running), but is also a very good way of quickly running interactive commands
-in the container. Because we're using NodeJS inside our container to run the
+in the container. Because we're using Node.js inside our container to run the
 listening HTTP server, we can use interactive mode to get a psuedo terminal into
-the NodeJS interpretter. Run the following:
+the Node.js interpreter. Run the following:
 ```
 $ docker run --interactive --tty --publish "9854:9854" simple-docker-app /usr/local/bin/node
 Welcome to Node.js v13.9.0.
 Type ".help" for more information.
 >
 ```
-As you can see, we've now been able to gain a TTY into the NodeJS process.
+As you can see, we've now been able to gain a TTY into the Node.js process.
 Feel free to run some JavaScript statements in it, and when you've finished
 hit `Ctrl+C` twice to exit the interpreter. This will finish the interactive
 session within the container, and the container (because we overrode the default
@@ -2071,7 +2049,7 @@ Deletion or recreation of the container will see these container instance layers
 discarded. Whilst this is useful for transient files and directories, there are
 times when files need to persist.
 
-For example, suppose you've written a application where one Docker image deals
+For example, suppose you've written an application where one Docker image deals
 with storing and retrieving data from a database. A container instanced from the
 image *could* store all of the data in a new layer, but should you want to
 change the underlying code, create a new version of the image and then use it,
@@ -2104,8 +2082,8 @@ etc. to be specified.
 Let's carry out a quick example of this. We'll use the
 `balenalib/intel-nuc-debian-node` image to create a new container which binds
 to an already existing directory structure. Run the following in the terminal
-to change to the example directory and start running a new container which we'll
-connect a psuedo terminal to:
+to change to the bind-mounts-and-volumes and start running a new container which
+we'll connect a psuedo terminal to:
 ```
 $ cd $BALENA_DOCKER_MASTERCLASS/bind-mounts-and-volumes
 $ docker run --interactive --tty --mount type=bind,source="${BALENA_DOCKER_MASTERCLASS}"/bind-mounts-and-volumes/bind-directory,destination=/bound-mount simple-docker-app /bin/bash
@@ -2335,7 +2313,7 @@ is a good place to start to read up on networking features.
 
 Docker containers are all subject to the use of control groups (also known as
 `cgroups`). Control groups allocate host resources that can be used by a
-container, and as such limit can limit the amount of CPU, memory or I/O usage
+container, and as such can limit the amount of CPU, memory or I/O usage
 for it. This ensures that a rogue container cannot disrupt a host OS to the
 point of bringing it down or making it unusable. Control groups for a container
 are configurable, so a user can alter the resources available to it when
@@ -2353,7 +2331,7 @@ Containers can also use other security features in the Linux kernel, such as
 [AppArmor](https://gitlab.com/apparmor/apparmor) to further ensure that
 containers are only given access to what they need.
 
-Now that we know that a container has it's own networking, namespace and
+Now that we know that a container has its own networking, namespace and
 (potentially) limited `cgroups` rules, we can relax a bit knowing that there's
 little chance of a container doing anything nasty to the host OS without the
 knowledge of the user who's running it.
@@ -2361,7 +2339,7 @@ knowledge of the user who's running it.
 In fact, we've seen this already when creating our first container, where
 although the HTTP server was listening inside the container, Docker did not
 allow traffic from the host to the container unless the appropriate ports were
-published. This is because the container was running it's own network stack and
+published. This is because the container was running its own network stack and
 had not been given any rules to allow incoming traffic from the host into it.
 
 However, for now, we want to try and still mount a `tmpfs` mount inside our
@@ -2432,7 +2410,7 @@ repository where it stores all of its base images. The base images are owned by
 the `balenalib` user, and the repository name is the device type they use as
 well as the functionality they include, hence `balenalib/intel-nuc-debian-node`
 is a base image owned by `balenalib` which runs on an `intel-nuc` device based
-on a `debian` Linux distribution and includes `node` (NodeJS). Simply, a
+on a `debian` Linux distribution and includes `node` (Node.js). Simply, a
 repository is made up of `user/respository-name`.
 
 Versions of a particular repository image are then given by a tag, and as we
