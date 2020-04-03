@@ -41,7 +41,7 @@
     - [10. Container Privileges and Permissions](#10-container-privileges-and-permissions)
       - [10.1 Users in Containers](#101-users-in-containers)
       - [10.2 Namespaces, Capabilities, Networking and Control Groups](#102-namespaces-capabilities-networking-and-control-groups)
-    - [11. Docker Repositories](#11-docker-repositories)
+    - [11. Docker Registries and Repositories](#11-docker-registries-and-repositories)
   - [Conclusion](#conclusion)
 
 ## Introduction
@@ -1640,13 +1640,10 @@ Step 3/8 : WORKDIR /usr/src/app
  ---> Using cache
  ---> 568a5e43a29e
 Step 4/8 : COPY * /usr/src/app/
- ---> Using cache
  ---> 9dba319eb545
 Step 5/8 : RUN npm install
- ---> Using cache
  ---> e592d47811be
 Step 6/8 : RUN echo "I'm a new layer!"
- ---> Using cache
  ---> 50b9b858560a
 Step 7/8 : RUN echo "I'm yet another new layer!"
  ---> Running in d2f1941af3f7
@@ -1660,8 +1657,51 @@ Removing intermediate container c73ee349d0c8
 Successfully built 8da0e5e54752
 Successfully tagged simple-docker-app:latest
 ```
-As you can see, the cache was used for the build right up until the new
-step we added to the Dockerfile.
+So again, this didn't work, why not? Well, this time, the `COPY` instruction
+has changed again because now we're *not* copying the Dockerfile in. Finally,
+add another new line before the `CMD` directive:
+```
+RUN echo "I'm a final layer!"
+```
+And now rerun the build:
+```
+$ docker build -t simple-docker-app:latest .
+Sending build context to Docker daemon   5.12kB
+Step 1/9 : FROM balenalib/intel-nuc-debian-node:latest
+  ---> 4498fe12b99e
+Step 2/9 : EXPOSE 9854
+ ---> Using cache
+ ---> ff63da014498
+Step 3/9 : WORKDIR /usr/src/app
+ ---> Using cache
+ ---> 568a5e43a29e
+Step 4/9 : COPY * /usr/src/app/
+ ---> Using cache
+ ---> 9dba319eb545
+Step 5/9 : RUN npm install
+ ---> Using cache
+ ---> e592d47811be
+Step 6/9 : RUN echo "I'm a new layer!"
+ ---> Using cache
+ ---> 50b9b858560a
+Step 7/9 : RUN echo "I'm yet another new layer!"
+ ---> Using cache
+ ---> 088cb20dc04e
+Step 8/9 : RUN echo "I'm a final layer!"
+ ---> Running in 6ac0e5fd891e
+I'm a final layer!
+Removing intermediate container 6ac0e5fd891e
+ ---> 4bf14cfdce0b
+Step 9/9 : CMD ["/usr/local/bin/npm", "start"]
+ ---> Running in 8730c2627796
+Removing intermediate container 8730c2627796
+ ---> 14984b3f702d
+Successfully built 14984b3f702d
+Successfully tagged simple-docker-app:latest
+```
+This time the cache was used for the build right up until the new step we added
+to the Dockerfile because it's no longer being copied. Finally, remove the
+`RUN` lines that we just added.
 
 There's another way to use `COPY` so that the cache is used efficiently, and
 that's to only copy files required to build your image. Change your Dockerfile
@@ -1833,14 +1873,14 @@ again, and the filesystem layer already built was reused:
 Step 5/7 : RUN npm install
  ---> Using cache
 ```
-By considering how your Dockerfile is constructed, and how the cache may be
-utilized is an extremely valuable part of using Docker. Whilst the example
+Considering how your Dockerfile is constructed, and how the cache may be
+utilized, is an extremely important part of using Docker. Whilst the example
 we've used is very simplistic, for builds where a Dockerfile is many lines long
 this can be critical in cutting down build time from hours to minutes.
 
 ### 8. Running Containers in Detached, Command and Interactive Modes
 
-So far we've `docker run` to create a new container, which outputs all STDIO
+So far we've `docker run` to create a new container, which outputs all `stdout`
 to the console.
 
 However, there are multiple ways in which a container can be instanced.
@@ -1863,7 +1903,7 @@ detaching the terminal from the Docker container, and the `--detach` would
 essentially be in conflict.
 The output from this command is the ID of the now running docker container:
 ```
-$ $ docker ps
+$ docker ps
 CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS                    NAMES
 f0960149a42f        simple-docker-app   "/usr/bin/entry.sh /…"   11 seconds ago      Up 11 seconds       0.0.0.0:9854->9854/tcp   compassionate_williams
 ```
@@ -1877,7 +1917,7 @@ what it's doing. We can easily do this by using the
 [`docker attach`](https://docs.docker.com/engine/reference/commandline/attach/)
 command specifying the name or ID of the container:
 ```
-docker attach 6c6cce948d4b
+docker attach f0960149a42f
 ```
 Start a new terminal and in it run the `curl` command to our container again:
 ```
@@ -1916,7 +1956,6 @@ because the command that we've used to override the default container command
 is not a long running command, which brings us to another important point.
 Docker containers only run for as long as the command they've been asked to
 execute runs. As soon as that command exits, the container stops running.
-We'll go into more detail about this later.
 
 We also don't use the `--tty` switch, because we're running a command we expect
 to exit either successfully or with an error code, rather than a long-running
@@ -1926,10 +1965,10 @@ process that might need to be manually terminated.
 
 ##### 8.3.1 Via `docker run`
 
-Docker containers can also run in interactive mode. The STDIN stream is passed
+Docker containers can also run in interactive mode. The `stdin` stream is passed
 to the container from the host, which allows input directly into the container.
-The `--interactive` (shortened form `-i`) passed to `docker run` allows this,
-and it's usually used in conjunction with `--tty` (shortened form `-t`) to
+The `--interactive` (shortened form `-i`) switch passed to `docker run` allows
+this, and it's usually used in conjunction with `--tty` (shortened form `-t`) to
 allocate a psuedo terminal to the container. This allows us to perform many
 operations as well as send signals (which is why `Ctrl+C` stops the container
 running), but is also a very good way of quickly running interactive commands
@@ -1944,13 +1983,13 @@ Type ".help" for more information.
 ```
 As you can see, we've now been able to gain a TTY into the NodeJS process.
 Feel free to run some JavaScript statements in it, and when you've finished
-hit `Ctrl+C` twice to exit the interpretter. This will finish the interactive
+hit `Ctrl+C` twice to exit the interpreter. This will finish the interactive
 session within the container, and the container (because we overrode the default
 command by running `/usr/local/bin/node`) will stop.
 
-Most non-ligthweight Docker images are built based on top of a Linux
+Most non-lightweight Docker images are built based on top of a Linux
 distribution of one kind or another. Our particular image was built using Debian
-Buster as it's base. Because of this, we can very easily use the inbuilt `bash`
+Buster as its base. Because of this, we can very easily use the inbuilt `bash`
 shell to get a TTY connection into the container and run it as if we were just
 using another installation of Debian:
 ```
@@ -1986,19 +2025,19 @@ running container. This is `docker exec`, and it behaves in the same was as
 sending a command parameter to `docker run`, except that it does this on already
 running containers.
 
-To demonstrate, run a container to start the HTTP server:
+To demonstrate, run a container in detached mode to start the HTTP server:
 ```
 $ docker run --detach --publish "9854:9854" simple-docker-app
 6c4e438ffa43683d7cb8a9f52ba72c4ec874acd11cd5842ae34cba8243c3c527
 ```
-We're running in detached mode, so we can now send a `curl` command to prove the
-HTTP server is listening:
+As we're running in detached mode, so we can now send a `curl` command to prove
+the HTTP server is listening:
 ```
 $ curl -XPOST http://localhost:9854/echo -H 'Content-type: text/plain' -d 'Running echo!'
 Running echo!
 ```
 As we have the ID of the running container, we can now execute a command using
-`docker exec`:
+`docker exec` (obviously change the container ID appropriately):
 ```
 $ docker exec --interactive --tty 6c4e438ffa43683d7cb8a9f52ba72c4ec874acd11cd5842ae34cba8243c3c527 /bin/bash
 root@6c4e438ffa43:/usr/src/app# # ps -ae
@@ -2011,6 +2050,11 @@ root@6c4e438ffa43:/usr/src/app# # ps -ae
 ```
 We now have a bash shell into the container and as we can see, the `npm start`
 from the `CMD` in the Dockerfile is running correctly as PID 1.
+
+Finally stop the container:
+```
+$ docker stop 6c4e438ffa43683d7cb8a9f52ba72c4ec874acd11cd5842ae34cba8243c3c527
+```
 
 ### 9. Bind Mounts and Volumes
 
@@ -2064,13 +2108,13 @@ to change to the example directory and start running a new container which we'll
 connect a psuedo terminal to:
 ```
 $ cd $BALENA_DOCKER_MASTERCLASS/bind-mounts-and-volumes
-$ $ docker run --interactive --tty --mount type=bind,source="${BALENA_DOCKER_MASTERCLASS}"/bind-mounts-and-volumes/bind-directory,destination=/bound-mount simple-docker-app /bin/bash
+$ docker run --interactive --tty --mount type=bind,source="${BALENA_DOCKER_MASTERCLASS}"/bind-mounts-and-volumes/bind-directory,destination=/bound-mount simple-docker-app /bin/bash
 root@ce0c2aa62101:/usr/src/app# cat /bound-mount/testfile.txt
 This is a bound file!
 root@ce0c2aa62101:/usr/src/app# echo "This was added from the container!" >> /bound-mount/testfile.txt
 root@ce0c2aa62101:/usr/src/app# exit
 exit
-Heds-Balena-Machine:bind-mounts-and-volumes heds$ cat bind-directory/testfile.txt
+bind-mounts-and-volumes heds$ cat bind-directory/testfile.txt
 This is a bound file!
 This was added from the container!
 ```
@@ -2086,16 +2130,16 @@ would also have been echoed in the container.
 mounts were specified with the `--volume` option. This diverged when volumes
 became first class Docker citizens, which is when `--mount` was introduced.
 Whilst you *can* attach a bind mount to a container using `--volume`, it is
-not recommended for those coming into Docker, as it reinforces legacy behaviour.
-Try to only use `--mount` for bind mounts and `--volume` for Docker volumes.
-Another important note is that a directory or file used for bind mounting must
-exist prior to the mount occuring.
+not recommended for those starting Docker, as it reinforces legacy behaviour.
+Try to only use `--mount` for bind and volume mounts (and just `--volume` for
+Docker volumes if really required). Another important note is that a directory
+or file used for bind mounting must exist prior to the mount occuring.
 
 #### 9.2 Volumes
 
 Volumes, unlike bind mounts, are Docker managed storage areas which can also
-be mounted into a container. Unlike bind mounts a directory path is not passed
-to the container, but the name of the volume itself. This has several
+be mounted into a container. Also unlike bind mounts, a directory path is not
+passed to the container, but the name of the volume itself. This has several
 immediately obvious benefit that only the name of the volume is required to
 work with it instead of a filepath. Another big advantage is that volumes can
 be of many forms, and not just of local filesystem hierarchies. There are
@@ -2104,8 +2148,8 @@ be far more flexible than bind mounts.
 
 For these exercises, we're just going to use a local filesystem volume.
 
-Volumes, if not pre-existing, are created when a new container than it is
-bound to starts. However, we'll go into a little more detail with them and
+Volumes, if not pre-existing, are created when a new container that it is
+bound is created or started. However, we'll go into a little more detail and
 create one ourselves:
 ```
 $ docker volume create my-volume
@@ -2114,7 +2158,7 @@ my-volume
 We've created a volume with the name `my-volume`. Now we can attach it to a
 new container:
 ```
-$ $ docker run --interactive --tty --mount type=volume,source=my-volume,destination=/data-volume simple-docker-app /bin/bash
+$ docker run --interactive --tty --mount type=volume,source=my-volume,destination=/data-volume simple-docker-app /bin/bash
 root@a3d4665bc8b1:/usr/src/app# echo "Data in my-volume!" > /data-volume/newfile.txt
 root@a3d4665bc8b1:/usr/src/app# exit
 ```
@@ -2137,7 +2181,7 @@ Because the volume is just another Docker object, we're actually able to inspect
 it via the command line with
 [`docker volume inspect`](https://docs.docker.com/engine/reference/commandline/volume_inspect/):
 ```
-$ docker inspect my-volume
+$ docker volume inspect my-volume
 [
     {
         "CreatedAt": "2020-03-12T00:07:30Z",
@@ -2152,7 +2196,7 @@ $ docker inspect my-volume
 ```
 The `Mountpoint` actually shows that the volume is created in the Docker storage
 heirarchy, and if we were to inspect the
-`/var/lib/docker/volumes/my-volume/_data` directory, we'd fine the `newfile.txt`
+`/var/lib/docker/volumes/my-volume/_data` directory, we'd find the `newfile.txt`
 file.
 
 You can list the current volumes known by Docker with
@@ -2191,9 +2235,9 @@ my-volume
 
 Containers, as described previously, share the kernel of the host OS (or the
 underlying Hypervisor or VM). As such, processes run against this kernel.
-However, this doesn't mean that all processes cn carry out any operations that
-they want. To explain this, we need to dig a little into both the user model
-and the way containers are controlled.
+However, this doesn't mean that processes in a container can carry out any
+operations that they want. To explain this, we need to dig a little into both
+the user model and the way containers are controlled.
 
 #### 10.1 Users in Containers
 
@@ -2267,9 +2311,9 @@ As well as namespace separation, containers also adhere to the Linux capability
 model, which allows very fine grained control over what container processes are
 allowed to carry out. For example, should a process need to make changes to a
 file's UIDs and GIDs, it would require the`CAP_CHOWN` capability to allow it
-to make such changes. Without this capability, any attempt to change files
-in a volume or bind mount would fail, regardless of underlying process user.
-You can read more about Linux capabilities and the functionality that each
+to make such changes. Without this capability, any attempt to change file
+ownership in a volume or bind mount would fail, regardless of underlying process
+user. You can read more about Linux capabilities and the functionality that each
 capability has access to
 [here](http://man7.org/linux/man-pages/man7/capabilities.7.html).
 By default, Docker drops almost all capabilities for a container that are not
@@ -2280,9 +2324,10 @@ Containers also run their own network stacks. As we've already seen, just
 because a container has a process listening on a defined port, it doesn't mean
 that any traffic will actually make it into the container. There's essentially a
 firewall between the container and the host's networking interfaces, and the act
-of publishing ports on a container allows traffic through that firewall. Users
-can also create their own Docker networks, and then run containers specifying
-these networks so that containers can communicate with each other, and the host,
+of publishing ports on a container allows traffic through that firewall (note
+that this is **not** true should `host` networking be used). Users can also
+create their own Docker networks, and then run containers specifying these
+networks so that containers can communicate with each other, and the host,
 where required. These networks essentially contain their own namespacing, so
 that they can only interact if given permission to do so. The
 [Docker networking overview](https://docs.docker.com/network/)
@@ -2327,25 +2372,211 @@ large number of other capabilites for container processes). To enable this,
 we'll use the `--cap-add` (for capability add) switch when executing
 `docker run`:
 ```
-$ docker run --interactive --tty --cap-add SYS_ADMIN simple-docker-app \
->   /bin/bash -c 'mkdir /mnt/tmp \
->   && mount -t tmpfs none /mnt/tmp \
->   && echo "Temp file!" > /mnt/tmp/newfile.txt \
->   && cat /mnt/tmp/newfile.txt'
+$ docker run --interactive --tty --cap-add SYS_ADMIN simple-docker-app /bin/bash -c 'mkdir /mnt/tmp \
+  && mount -t tmpfs none /mnt/tmp \
+  && echo "Temp file!" > /mnt/tmp/newfile.txt \
+  && cat /mnt/tmp/newfile.txt'
 Temp file!
 ```
 This time it worked correctly, because we eased the restriction on the container
 to allow the `CAP_SYS_ADMIN` capability. Note that when passing the capability,
 the `CAP_` prefix is dropped.
 
-It's important to note that, should your container require elevated permissions
-or capabilities above that of the default controls, you find the minimal number
-of changes required for the functionality required. This way your container
-will continue to be secured away from the host OS.
+It's important to note that should your container require elevated permissions
+or capabilities above that of the default controls, you should find the minimal
+number of changes required for the functionality required. This way your
+container will continue to be secured as much as possible from malicious code.
 
-### 11. Docker Repositories
+### 11. Docker Registries and Repositories
 
-FILL THIS OUT
+Once you've built a working docker image that contains all the functionality you
+need, it will be stored in the local Docker registry on the machine that you've
+carried out development on.
+
+We've already seen the local registry, it's the store for images, the list of
+which can be seen by running the following command:
+```
+$ docker images
+REPOSITORY                        TAG                 IMAGE ID            CREATED             SIZE
+simple-docker-app                 latest              b8a722866d8c        3 days ago          273MB
+simple-docker-app                 v0.0.2              5e2c8c1cb9d9        5 days ago          273MB
+simple-docker-app                 v0.0.1              8a65ba22f11f        6 days ago          273MB
+balenalib/intel-nuc-debian-node   latest              ca37795ac1cc        2 weeks ago         270MB
+```
+This local repository stores all of the images that have been built or used
+when building the images. But how do we now share these images, so that others
+can use them? Well, think back to our Dockerfile, specifically the first line
+where we determined which base image to use:
+```
+FROM balenalib/intel-nuc-debian-node:latest
+```
+As we know, this tells Docker which image to base the rest of the image we're
+building on. As you may also remember, on the first build, this downloaded the
+image. This download came from a remote Docker registry, which Docker itself
+hosts, called Docker Hub. Any user with an account on Docker Hub can upload
+images they've built so that other users can download them and run them, or use
+them as base images. Docker has both public and private registries, depending
+on the type of account (unpaid accounts only allow the maximum of one private
+repository, with all others being public, whereas paid accounts allow more
+private repositories). Docker Hub is the default Docker registry that is used
+when installing Docker, but other registries can also be used including private
+ones that you can run yourself. We'll discuss this in a future Masterclass.
+
+We discussed tags in a previous section, where we noted that tags that we give
+images are of the format `repository:tag`. A repository name denotes a specific
+location in a registry for a group of images. On Docker Hub, repositories are
+usually denoted by the name of a user or organisation using the registry and
+then the repository name itself, these being split by the use of a solidus
+(`/`). For example, the base image we were using was a balena image, in the
+repository where it stores all of its base images. The base images are owned by
+the `balenalib` user, and the repository name is the device type they use as
+well as the functionality they include, hence `balenalib/intel-nuc-debian-node`
+is a base image owned by `balenalib` which runs on an `intel-nuc` device based
+on a `debian` Linux distribution and includes `node` (NodeJS). Simply, a
+repository is made up of `user/respository-name`.
+
+Versions of a particular repository image are then given by a tag, and as we
+also learnt earlier in the Masterclass, if no tag is given then `latest` is
+assumed, which is why the image that was downloaded to the local registry
+is of tag `latest`.
+
+We'll quickly ensure that our built Docker image is pushed to Docker Hub so that
+we can use it anywhere else, or let others use it.
+
+First [create a new account on Docker Hub](https://hub.docker.com/) if you don't
+already have one, using the `Sign Up` panel (if you already have a Docker Hub)
+account. If you do have one, sign into it. For the rest of the exercise, we'll
+assume the user is called `dockerhub` so remember to replace this name with the
+actual username (also called a Docker ID) you signed up with.
+
+Next ensure that you login to the default Docker registry (Docker Hub), using:
+```
+$ docker login
+Login with your Docker ID to push and pull images from Docker Hub. If you don't have a Docker ID, head over to https://hub.docker.com to create one.
+Username: dockerhub
+Password:
+Login Succeeded
+```
+First of all, there's the matter of naming our Docker image. When we built it,
+we called it `simple-docker-app`. This isn't suitable for pushing to Docker Hub
+however, because that name isn't prefixed by the name of the user who will own
+the repository on Docker Hub. We'll quickly demonstrate this by using the
+[`docker push`](https://docs.docker.com/engine/reference/commandline/push/)
+command, which is used to push repository images to a registry:
+```
+$ docker push simple-docker-app:latest
+The push refers to repository [docker.io/library/simple-docker-app]
+d1584e117f97: Preparing
+e5630e29b3ed: Preparing
+7e1009fcbba1: Preparing
+77b61c32e3ac: Preparing
+88d4980a47f6: Preparing
+56db180aad32: Waiting
+711c9715952e: Waiting
+f8cad89c2502: Waiting
+381d6d079e1d: Waiting
+8a4c2b7f231f: Waiting
+3a2f92b02f7b: Waiting
+04bd31396a7a: Waiting
+034332202128: Waiting
+f2cb0ecef392: Waiting
+denied: requested access to the resource is denied
+```
+As you can see, we don't have access to the toplevel repository because we
+don't own it.
+
+Instead, we're going to ensure that Docker Hub knows that the image is owned
+by us by creating a new tag for the repository to include our username. We'll be
+pushing the `latest` version of the image we built, so we'll tag that:
+```
+$ docker tag simple-docker-app:latest dockerhub/simple-docker-app:latest
+$ docker images
+REPOSITORY                        TAG                 IMAGE ID            CREATED             SIZE
+simple-docker-app                 latest              b8a722866d8c        3 days ago          273MB
+dockerhub/simple-docker-app       latest              b8a722866d8c        3 days ago          273MB
+simple-docker-app                 v0.0.2              5e2c8c1cb9d9        6 days ago          273MB
+simple-docker-app                 v0.0.1              8a65ba22f11f        6 days ago          273MB
+balenalib/intel-nuc-debian-node   latest              ca37795ac1cc        2 weeks ago         270MB
+```
+Note that when tagging you can use the name of the repository to create a new
+tag for, or use the image ID.
+
+We now have a repository called `dockerhub/simple-docker-app` which has a single
+version tag of `latest`. We'll try pushing this again:
+```
+$ docker push dockerhub/simple-docker-app:latest
+The push refers to repository [docker.io/dockerhub/simple-docker-app]
+d1584e117f97: Pushed
+e5630e29b3ed: Pushed
+7e1009fcbba1: Pushed
+77b61c32e3ac: Pushed
+88d4980a47f6: Pushed
+56db180aad32: Pushed
+711c9715952e: Pushed
+f8cad89c2502: Pushed
+381d6d079e1d: Pushed
+8a4c2b7f231f: Pushed
+3a2f92b02f7b: Pushed
+04bd31396a7a: Pushed
+034332202128: Pushed
+f2cb0ecef392: Pushed
+latest: digest: sha256:eaf4f3d25964c6d56e4dec4fac93212d2fd315474a8040c00189bae46eded30d size: 3246
+```
+Success! If you now look at the Docker Hub site in your web browser and go to
+the `My Profile` section of your user account, you'll notice that the image has
+been stored on Docker Hub in the `simple-docker-app` repository owned by you.
+
+Because we've carried out versioning with the tags, we can also add a new tag
+to a previous version and then push that:
+```
+$ docker tag simple-docker-app:v0.0.2 whaleway/simple-docker-app:v0.0.2
+$ docker push dockerhub/simple-docker-app:v0.0.2
+The push refers to repository [docker.io/dockerhub/simple-docker-app]
+d217d415dd8d: Pushed
+715dcd4f6062: Pushed
+77b61c32e3ac: Layer already exists
+88d4980a47f6: Layer already exists
+56db180aad32: Layer already exists
+711c9715952e: Layer already exists
+f8cad89c2502: Layer already exists
+381d6d079e1d: Layer already exists
+8a4c2b7f231f: Layer already exists
+3a2f92b02f7b: Layer already exists
+04bd31396a7a: Layer already exists
+034332202128: Layer already exists
+f2cb0ecef392: Layer already exists
+v0.0.2: digest: sha256:c82f1c64bbdd86fdeba44de5393f0af6e9271ac9cbad8a626c320e61b29dbe64 size: 3039
+```
+Note the message `Layer already exists`. Because the repository we pushed to
+already has an image (`dockerhub/simple-docker-app:latest`), Docker noted that
+our latest push used several of the same layers for its image. Because of this,
+it didn't need to push them separately to the registry. This is another good
+example of how the use of layers saves space.
+
+We've created new tags for our images here to push them to Docker Hub, but
+usually you'll build an image with the user (owner name) directly so that
+tagging doesn't have to take place before pushing, for example:
+```
+$ docker built -t dockerhub/simple-docker-app:latest .
+```
+If you again look at the profile for your user account and select the
+`dockerhub/simple-docker-app` repository, this will take you to a page for that
+specific repository (you can manage your repository here using
+'Manage Repository'). If you select the 'Tags' panel, you'll see that there are
+now two versions of the image stored in the registry, `latest` and `v0.0.2`.
+This will also show you the compressed size of the images stored on Docker Hub,
+as well as a copy and paste line that will allow you to pull the image
+(for example `docker pull dockerhub/simple-docker-app:latest`).
+
+`docker pull` is the command used to pull images from a Docker registry,
+allowing any image that has been stored in an accessible registry to be pulled
+to a local machine's local registry.
+
+So now you know how to store a built image into a remote registry that anyone
+else with access to that registry can either use to pull and run the image, or
+use it as a base image for further images (and of course there is no need to
+`docker pull` a base image used in a `FROM` directive instruction in a
+Dockerfile as it will occur as part of the build).
 
 ## Conclusion
 
@@ -2365,3 +2596,4 @@ to:
 * Understand the restrictions on processes running in a container, including
   the users running the processes and how to enable access to restricted
   functionality.
+* Be able to store built images on Docker Hub for use by anyone.
